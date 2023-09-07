@@ -117,7 +117,6 @@ module HDT.Tasks
     )  where
 
 import Control.Concurrent.STM
-import Control.Concurrent (threadDelay)
 import Numeric.Natural        (Natural)
 import Text.Printf            (printf)
 
@@ -128,8 +127,6 @@ import Text.Printf            (printf)
 --
 -- Agents can be used to model concurrent agents that communicate and coordinate
 -- via message exchange over a broadcast channel.
---data Agent msg a
-
 data Agent msg a = Pure a | Agent (msg (Agent msg a))
 
 -- |__TODO:__ Provide a @'Functor'@ instance for @'Agent' msg@.
@@ -163,58 +160,64 @@ instance Functor msg => Applicative (Agent msg) where
 -- The resulting monad should be /free/ and support operations
 -- @'delay'@, @'broadcast'@ and @'receive'@ described below.
 instance Functor msg => Monad (Agent msg) where
-  return = pure
+  return = Pure
   Pure x >>= f = f x
-  Agent g >>= f = Agent $ fmap (>>= f) g
+  Agent g >>= f = Agent $ fmap (>>= f) g    -- g =~ f (Agent f a), the unflattened functor
 
 -- |Delay for one timestep.
 -- __TODO:__ Implement @'delay'@.
-delay :: Agent msg ()
-delay =  Pure ()--Agent $ msg (pure ())
+delay :: Functor msgF => Agent msgF ()
+delay = Pure ()
 
 -- |Broadcast a message.
 -- __TODO:__ Implement @'broadcast'@.
-broadcast :: (msg ())          -- ^The message to broadcast.
-          -> Agent msg ()
-broadcast = error "TODO: implement broadcast"
+broadcast :: msg          -- ^The message to broadcast.
+          -> Agent MessageF ()
+broadcast msg = Agent $ MessageF (Pure ())
 
 -- |Wait for a broadcast and return the received message.
 -- __TODO:__ Implement @'receive'@.
-receive :: Agent msg (msg ())
-receive = error "TODO: implement receive"
+
+receive :: Functor msgF => Agent msgF msg
+receive = do 
+        msg <- receive 
+        Pure msg
+
+liftF' :: Functor f => f a -> Agent f a
+liftF' = Agent . fmap Pure
+
 
 -- |The message type used by agents @'ping'@ and @'pong'@.
-data PingPongMessage a =
-      Ping a -- ^Message used by the @'ping'@ agent, which the @'pong'@ agent waits for.
-    | Pong a -- ^Message used by the @'pong'@ agent, which the @'ping'@ agent waits for.
+data PingPongMessage =
+      Ping  -- ^Message used by the @'ping'@ agent, which the @'pong'@ agent waits for.
+    | Pong  -- ^Message used by the @'pong'@ agent, which the @'ping'@ agent waits for.
     deriving (Show)
 
-instance Functor PingPongMessage where
-  fmap f (Ping x) = Ping (f x)
-  fmap f (Pong x) = Pong (f x)  
+data MessageF a = MessageF a deriving Show
+
+instance Functor MessageF where
+  fmap f (MessageF x) = MessageF(f x)
 
 -- |Agent @'ping'@ starts by broadcasting a @'Ping'@ message, then
 -- waits for a @'Pong'@ message and repeats.
 -- Note how it guards against the possibility of receiving its own broadcasts!
-
-
-ping :: Agent PingPongMessage ()
-ping = delay >> broadcast (Ping ()) >> go
+ping :: Agent MessageF ()
+ping = delay >> broadcast Ping >> go
   where
     go = do
         msg <- receive
         case msg of
-            Ping _ -> go
-            Pong _ -> ping
+            Ping -> go
+            Pong -> ping
 
 -- |Agent @'pong'@ waits for a @'Ping'@ message, the broadcasts a @'Pong'@ message
 -- and repeats.
-pong :: Agent PingPongMessage ()
+pong :: Agent MessageF ()
 pong = do
     msg <- receive
     case msg of
-        (Ping _) -> delay >> broadcast (Pong ()) >> pong
-        (Pong _) -> pong
+        Ping -> delay >> broadcast Pong >> pong
+        Pong -> pong
 
 -- |Function @'runIO' agents@ runs each agent in the given list
 -- concurrently in the @'IO'@-monad.
@@ -233,8 +236,8 @@ pong = do
 --    shared @'TChan'@.
 --
 -- __TODO:__ Implement @'runIO'@.
-runIO :: Functor msg => Show (msg ())
-      => [Agent msg ()] -- ^The agents to run concurrently.
+runIO :: Show (msgF ())
+      => [Agent msgF ()] -- ^The agents to run concurrently.
       -> IO ()
 runIO = error "TODO: implement runIO"
 
@@ -320,13 +323,13 @@ instance Functor BftMessage where
 -- the @'clock'@ agent, which broadcasts the beginning of each new @'Slot'@
 -- using @'Time'@-messages. The agent should start with @'Slot' 0@ and run forever.
 -- __TODO:__ Implement @'clock'@.
-clock :: Functor BftMessage => Agent BftMessage a
+clock :: Agent BftMessage a
 clock = error "TODO: implement clock"
 
 -- |A @'node'@ participating in the BFT-protocol. It should start with the @'Genesis'@
 -- chain at @'Slot' 0@ and run forever.
 -- __TODO:__ Implement @'node'@.
-node :: Functor BftMessage => Int                -- ^Total number of nodes.
+node :: Int                -- ^Total number of nodes.
      -> NodeId             -- ^Identifier of /this/ node.
      -> Agent BftMessage a
 node = error "TODO: implement node"
@@ -341,8 +344,7 @@ node = error "TODO: implement node"
 --  * all agents waiting for a broadcast.
 --
 -- __TODO:__ Implement @'runPure'@.
-runPure :: Functor msg => [Agent msg ()]   -- ^The agents to run.
+runPure :: [Agent msg ()]   -- ^The agents to run.
         -> [(Natural, msg ())] -- ^A list of all broadcasts, represented by
                             -- pairs containing a timestamp and the message that was sent.
 runPure = error "TODO: implement runPure"
-
