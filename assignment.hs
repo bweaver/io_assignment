@@ -117,6 +117,9 @@ module HDT.Tasks
     )  where
 
 import Control.Concurrent.STM
+import Control.Concurrent.STM.TChan  (newTChanIO)
+import Control.Concurrent     (threadDelay, forkIO)
+import Control.Monad          (forM_)
 import Numeric.Natural        (Natural)
 import Text.Printf            (printf)
 
@@ -166,26 +169,26 @@ instance Functor msg => Monad (Agent msg) where
 
 -- |Delay for one timestep.
 -- __TODO:__ Implement @'delay'@.
-delay :: Agent MsgF ()
+delay :: Agent PingPongMessage ()
 delay =  Pure () --liftF' (DelayF ())
 
 -- |Broadcast a message.
 -- __TODO:__ Implement @'broadcast'@.
 broadcast :: msg          -- ^The message to broadcast.
-          -> Agent MsgF ()
+          -> Agent PingPongMessage ()
 broadcast msg = liftF' $ BroadcastF ()
 
 -- |Wait for a broadcast and return the received message.
 -- __TODO:__ Implement @'receive'@.
 
-receive :: Agent MsgF msg
+receive :: Agent PingPongMessage msg
 --receive = liftF' ReceiveF
 receive = do 
         msg <- receive 
         Pure msg
 
 
-data MsgF a = 
+data PingPongMessage a = 
      MsgF a 
    -- |BloopF a 
    -- |BingF a 
@@ -214,7 +217,7 @@ liftF' = Agent . fmap Pure
 
 --type AgentMsgF t = Agent MsgF t
 
-ripInterpretMsgF :: Agent MsgF a -> IO ()
+ripInterpretMsgF :: Agent PingPongMessage a -> IO ()
 ripInterpretMsgF (Pure x) = return ()
 --ripInterpretMsgF (Agent (MsgF (Pure x))) = ripRunIO (MsgF (Pure x)) >>= ripInterpretMsgF 
 --ripInterpretMsgF (Agent (BloopF (Pure x))) = ripRunIO (BloopF (Pure x))>>= ripInterpretMsgF 
@@ -228,7 +231,7 @@ ripInterpretMsgF (Agent (Pong (Pure x))) = ripRunIO (Pong $ Pure ()) >>= ripInte
 
 
 
-ripRunIO :: MsgF a -> IO a
+ripRunIO :: PingPongMessage a -> IO a
 --ripRunIO (BloopF x) = putStrLn "hello bloop" >> return x
 --ripRunIO (BangF x) = putStrLn "hello bang" >> return x
 --ripRunIO (BingF x) = putStrLn "hello bing" >> return x
@@ -243,10 +246,10 @@ ripRunIO (Pong x) = putStrLn "hello pong" >> return x
 
 
 -- |The message type used by agents @'ping'@ and @'pong'@.
-data PingPongMessage =
-      PingXXXXXXX  -- ^Message used by the @'ping'@ agent, which the @'pong'@ agent waits for.
-    | PongXXXXXXX  -- ^Message used by the @'pong'@ agent, which the @'ping'@ agent waits for.
-    deriving (Show)
+--data PingPongMessage =
+--      PingXXXXXXX  -- ^Message used by the @'ping'@ agent, which the @'pong'@ agent waits for.
+--    | PongXXXXXXX  -- ^Message used by the @'pong'@ agent, which the @'ping'@ agent waits for.
+--    deriving (Show)
 
 data MessageF a = MessageF a deriving Show
 
@@ -256,7 +259,7 @@ instance Functor MessageF where
 -- |Agent @'ping'@ starts by broadcasting a @'Ping'@ message, then
 -- waits for a @'Pong'@ message and repeats.
 -- Note how it guards against the possibility of receiving its own broadcasts!
-ping :: Agent MsgF ()
+ping :: Agent PingPongMessage ()
 ping = delay >> broadcast Ping >> go
   where
     go = do
@@ -267,7 +270,7 @@ ping = delay >> broadcast Ping >> go
 
 -- |Agent @'pong'@ waits for a @'Ping'@ message, the broadcasts a @'Pong'@ message
 -- and repeats.
-pong :: Agent MsgF ()
+pong :: Agent PingPongMessage ()
 pong = do
     msg <- receive
     case msg of
@@ -291,10 +294,29 @@ pong = do
 --    shared @'TChan'@.
 --
 -- __TODO:__ Implement @'runIO'@.
-runIO :: Show (msgF ())
-      => [Agent msgF ()] -- ^The agents to run concurrently.
+runIO :: 
+      [Agent PingPongMessage ()] -- ^The agents to run concurrently.
       -> IO ()
-runIO = error "TODO: implement runIO"
+runIO list = do
+  workChan <- atomically newTChan
+  forM_ list (forkIO . runThread workChan)
+  return ()
+
+main :: IO ()
+main = runIO [ping, pong]
+
+runThread :: TChan (Int, String) -> (Agent PingPongMessage ()) -> IO ()
+runThread workChannel x = do
+            threadDelay (10^6) 
+            --id <- forkIO
+            let constructor = case x of 
+                                (Agent (Ping (Pure _))) -> "Ping"
+                                (Agent (Pong (Pure _)))-> "Pong"
+            -- Pure _ -> _
+            atomically $ writeTChan workChannel  (5, "Bloop")
+            print "bloop"
+  
+
 
 -- |Time is divided into @'Slot'@s.
 type Slot = Natural
