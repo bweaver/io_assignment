@@ -184,31 +184,25 @@ receive = do
         Pure msg
 
 
-data MsgF a = MsgF a |BloopF a |BingF a |BangF a deriving (Show, Functor)
+data MsgF a = MsgF a |BloopF a |BingF a |BangF a |PingMine a |PongMine a deriving (Show, Functor)
 
-msgF :: a -> MsgF a 
-msgF x = MsgF x
-bloopF :: a -> MsgF a
-bloopF x = BloopF x
-bingF :: a -> MsgF a
-bingF x = BingF x
-bangF:: a -> MsgF a
-bangF x = BangF x
+
 
 msg :: a -> AgentMsgF a 
-msg = liftF' . msgF
+msg = liftF' . MsgF
 bloop :: a -> AgentMsgF a 
-bloop = liftF' . bloopF
+bloop = liftF' . BloopF
 bing :: a -> AgentMsgF a 
-bing = liftF' . bingF
+bing = liftF' . BingF
 bang :: a -> AgentMsgF a 
-bang = liftF' . bangF
+bang = liftF' . BangF
+pingMine = liftF' . PingMine
+pongMine = liftF' . PongMine 
 
 liftF' :: Functor f => f a -> Agent f a
 liftF' = Agent . fmap Pure
 
 type AgentMsgF t = Agent MsgF t
-
 
 ripInterpretMsgF :: Agent MsgF a -> IO a
 ripInterpretMsgF (Pure x) = return x
@@ -216,6 +210,9 @@ ripInterpretMsgF (Agent (MsgF (Pure x))) = ripRunIO (MsgF (Pure x)) >>= ripInter
 ripInterpretMsgF (Agent (BloopF (Pure x))) = ripRunIO (BloopF (Pure x))>>= ripInterpretMsgF 
 ripInterpretMsgF (Agent (BingF(Pure x))) = ripRunIO (BingF (Pure x)) >>= ripInterpretMsgF 
 ripInterpretMsgF (Agent (BangF (Pure x))) = ripRunIO (BangF (Pure x)) >>= ripInterpretMsgF 
+ripInterpretMsgF (Agent (PingMine (Pure x))) = ripRunIO (PingMine (Pure x)) >>= ripInterpretMsgF 
+ripInterpretMsgF (Agent (PongMine (Pure x))) = ripRunIO (PongMine (Pure x)) >>= ripInterpretMsgF 
+
 
 
 
@@ -233,6 +230,9 @@ ripRunIO (BloopF x) = putStrLn "hello bloop" >> return x
 ripRunIO (BangF x) = putStrLn "hello bang" >> return x
 ripRunIO (BingF x) = putStrLn "hello bing" >> return x
 ripRunIO (MsgF x) = putStrLn "hello msg" >> return x
+ripRunIO (PingMine x) = putStrLn "hello pingMine" >> return x
+ripRunIO (PongMine x) = putStrLn "hello pongMine" >> return x
+
 
 
 
