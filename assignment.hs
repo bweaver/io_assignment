@@ -16,7 +16,7 @@ to-do's!
 -}
 module HDT.Tasks
     ( -- * @Agent@s
-      -- | We start by implementing a free monad,
+      -- | We start by implementing a Agent monad,
       -- which we will use to model a concurrent agent than
       -- can communicate and coordinate with other agents by
       -- exchanging broadcast messages.
@@ -31,7 +31,7 @@ module HDT.Tasks
     , ping
     , pong
       -- * An @'IO'@-interpreter for agents.
-      -- |In order to actually /run/ agents, we need to /interpret/ the free
+      -- |In order to actually /run/ agents, we need to /interpret/ the Agent
       -- @'Agent'@ monad. We start with an interpreter in @'IO'@,
       -- which runs each agent in a list of agents in its own thread
       -- and implements messaging by utilizing a shared @'TChan'@ broadcast channel.
@@ -122,7 +122,7 @@ import Text.Printf            (printf)
 
 -- |An @'Agent' msg a@ is an abstract process that can send and receive broadcast
 -- messages of type @msg@ and will eventually return a result of type @a@.
--- Define the type such that @'Agent' msg@ is a /free monad/ supporting the operations
+-- Define the type such that @'Agent' msg@ is a /Agent monad/ supporting the operations
 -- @'delay'@, @'broadcast'@ and @'receive'@ below.
 --
 -- Agents can be used to model concurrent agents that communicate and coordinate
@@ -157,7 +157,7 @@ instance Functor msg => Applicative (Agent msg) where
 
 
 -- |__TODO:__ Provide a @'Monad'@ instance for @'Agent' msg@.
--- The resulting monad should be /free/ and support operations
+-- The resulting monad should be /Agent/ and support operations
 -- @'delay'@, @'broadcast'@ and @'receive'@ described below.
 instance Functor msg => Monad (Agent msg) where
   return = Pure
@@ -183,8 +183,57 @@ receive = do
         msg <- receive 
         Pure msg
 
+
+data MsgF a = MsgF a |BloopF a |BingF a |BangF a deriving (Show, Functor)
+
+msgF :: a -> MsgF a 
+msgF x = MsgF x
+bloopF :: a -> MsgF a
+bloopF x = BloopF x
+bingF :: a -> MsgF a
+bingF x = BingF x
+bangF:: a -> MsgF a
+bangF x = BangF x
+
+msg :: a -> AgentMsgF a 
+msg = liftF' . msgF
+bloop :: a -> AgentMsgF a 
+bloop = liftF' . bloopF
+bing :: a -> AgentMsgF a 
+bing = liftF' . bingF
+bang :: a -> AgentMsgF a 
+bang = liftF' . bangF
+
 liftF' :: Functor f => f a -> Agent f a
 liftF' = Agent . fmap Pure
+
+type AgentMsgF t = Agent MsgF t
+
+
+ripInterpretMsgF :: Agent MsgF a -> IO a
+ripInterpretMsgF (Pure x) = return x
+ripInterpretMsgF (Agent (MsgF (Pure x))) = ripRunIO (MsgF (Pure x)) >>= ripInterpretMsgF 
+ripInterpretMsgF (Agent (BloopF (Pure x))) = ripRunIO (BloopF (Pure x))>>= ripInterpretMsgF 
+ripInterpretMsgF (Agent (BingF(Pure x))) = ripRunIO (BingF (Pure x)) >>= ripInterpretMsgF 
+ripInterpretMsgF (Agent (BangF (Pure x))) = ripRunIO (BangF (Pure x)) >>= ripInterpretMsgF 
+
+
+
+
+{- interpretMF (mfF x) = putStr $ "mfF: " ++ (show x)
+interpretMF (F x) = putStr $ "mfF: " ++ (show x)
+interpretMF (mfF x) = putStr $ "mfF: " ++ (show x)
+interpretMF (mfF x) = putStr $ "mfF: " ++ (show x)
+interpretMF (mfF x) = putStr $ "mfF: " ++ (show x)
+-} 
+
+
+ripRunIO :: MsgF a -> IO a
+ripRunIO (BloopF x) = putStrLn "hello bloop" >> return x
+ripRunIO (BangF x) = putStrLn "hello bang" >> return x
+ripRunIO (BingF x) = putStrLn "hello bing" >> return x
+ripRunIO (MsgF x) = putStrLn "hello msg" >> return x
+
 
 
 -- |The message type used by agents @'ping'@ and @'pong'@.
