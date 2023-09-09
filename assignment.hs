@@ -27,7 +27,7 @@ module HDT.Tasks
       -- * Ping-pong example
       -- |As an example of using agents, agents @'ping'@ and @'pong'@ defined below
       -- keep sending @'Ping'@ and @'Pong'@ messages back and forth between themselves.
-    , PingPongMessage (..)
+    , MsgF (..)
     , ping
     , pong
       -- * An @'IO'@-interpreter for agents.
@@ -169,84 +169,63 @@ instance Functor msg => Monad (Agent msg) where
 
 -- |Delay for one timestep.
 -- __TODO:__ Implement @'delay'@.
-delay :: Agent PingPongMessage ()
-delay =  Pure () --liftF' (DelayF ())
+delay :: Agent MsgF ()
+delay =  Pure ()
 
 -- |Broadcast a message.
 -- __TODO:__ Implement @'broadcast'@.
 broadcast :: msg          -- ^The message to broadcast.
-          -> Agent PingPongMessage ()
+          -> Agent MsgF ()
 broadcast msg = liftF' $ BroadcastF ()
 
 -- |Wait for a broadcast and return the received message.
 -- __TODO:__ Implement @'receive'@.
 
-receive :: Agent PingPongMessage msg
+receive :: Agent MsgF msg
 --receive = liftF' ReceiveF
 receive = do 
         msg <- receive 
         Pure msg
 
 
-data PingPongMessage a = 
+data MsgF a = 
      MsgF a 
    -- |BloopF a 
    -- |BingF a 
    -- |BangF a
+    --DisplayF :: () => a -> MsgF a 
+    --PingPongMessageF :: PingPongMessage a -=> a -> MsgF a
+    --ReceiveVal :: MsgF -> PingPongMessage -> R
     |DelayF a
     |BroadcastF a
     |ReceiveF a
     |Ping a 
     |Pong a deriving (Show, Functor)
 
-
-
---msg :: a -> Agent MsgF a 
---msg = liftF' . MsgF
---bloop :: a -> Agent MsgF a 
---bloop = liftF' . BloopF
---bing :: a -> Agent MsgF a 
---bing = liftF' . BingF
---bang :: a -> Agent MsgF a 
---bang = liftF' . BangF
---ping = liftF' . PingMine
---pong = liftF' . PongMine 
-
 liftF' :: Functor f => f a -> Agent f a
 liftF' = Agent . fmap Pure
 
---type AgentMsgF t = Agent MsgF t
 
-ripInterpretMsgF :: Agent PingPongMessage a -> IO ()
+ripInterpretMsgF :: Agent MsgF a -> IO ()
 ripInterpretMsgF (Pure x) = return ()
---ripInterpretMsgF (Agent (MsgF (Pure x))) = ripRunIO (MsgF (Pure x)) >>= ripInterpretMsgF 
---ripInterpretMsgF (Agent (BloopF (Pure x))) = ripRunIO (BloopF (Pure x))>>= ripInterpretMsgF 
---ripInterpretMsgF (Agent (BingF(Pure x))) = ripRunIO (BingF (Pure x)) >>= ripInterpretMsgF 
---ripInterpretMsgF (Agent (BangF (Pure x))) = ripRunIO (BangF (Pure x)) >>= ripInterpretMsgF 
-ripInterpretMsgF (Agent (DelayF (Pure _ ))) = ripRunIO (DelayF (Pure ())) >>= ripInterpretMsgF
-ripInterpretMsgF (Agent (BroadcastF (Pure x))) = ripRunIO (BroadcastF $ Pure ())  >>= ripInterpretMsgF
-ripInterpretMsgF (Agent (ReceiveF (Pure x))) = ripRunIO (ReceiveF $ Pure ())  >>= ripInterpretMsgF
-ripInterpretMsgF (Agent (Ping (Pure x))) = ripRunIO (Ping $ Pure ()) >>= ripInterpretMsgF 
-ripInterpretMsgF (Agent (Pong (Pure x))) = ripRunIO (Pong $ Pure ()) >>= ripInterpretMsgF 
+ripInterpretMsgF (Agent x) = ripRunIO x >>= ripInterpretMsgF
 
 
+--ripInterpretMsgF (Agent (DelayF (Pure () ))) = ripRunIO (DelayF (Pure 1000000)) >>= ripInterpretMsgF
+--ripInterpretMsgF (Agent (BroadcastF (Pure x))) = ripRunIO (BroadcastF $ Pure ())  >>= ripInterpretMsgF
+--ripInterpretMsgF (Agent (ReceiveF (Pure x))) = ripRunIO (ReceiveF $ Pure ())  >>= ripInterpretMsgF
+--ripInterpretMsgF (Agent (Ping (Pure x))) = ripRunIO (Ping $ Pure ()) >>= ripInterpretMsgF 
+--ripInterpretMsgF (Agent (Pong (Pure x))) = ripRunIO (Pong $ Pure ()) >>= ripInterpretMsgF 
 
-ripRunIO :: PingPongMessage a -> IO a
---ripRunIO (BloopF x) = putStrLn "hello bloop" >> return x
---ripRunIO (BangF x) = putStrLn "hello bang" >> return x
---ripRunIO (BingF x) = putStrLn "hello bing" >> return x
---ripRunIO (MsgF x) = putStrLn "hello msg" >> return x
-ripRunIO (DelayF x)  = putStrLn "hello delay" >> return x
-ripRunIO (BroadcastF x) = putStrLn "hello broadcast" >> return x
+ripRunIO :: MsgF a -> IO a
+ripRunIO (DelayF x) = (threadDelay 1000000) >> return x
+ripRunIO (BroadcastF x) = putStrLn "hello broadcast Ping" >> return x
 ripRunIO (ReceiveF x) = putStrLn "hello receive" >> return x
 ripRunIO (Ping x) = putStrLn "hello ping" >> return x
 ripRunIO (Pong x) = putStrLn "hello pong" >> return x
 
-
-
-
 -- |The message type used by agents @'ping'@ and @'pong'@.
---data PingPongMessage =
+--data MsgF =
 --      PingXXXXXXX  -- ^Message used by the @'ping'@ agent, which the @'pong'@ agent waits for.
 --    | PongXXXXXXX  -- ^Message used by the @'pong'@ agent, which the @'ping'@ agent waits for.
 --    deriving (Show)
@@ -259,7 +238,7 @@ instance Functor MessageF where
 -- |Agent @'ping'@ starts by broadcasting a @'Ping'@ message, then
 -- waits for a @'Pong'@ message and repeats.
 -- Note how it guards against the possibility of receiving its own broadcasts!
-ping :: Agent PingPongMessage ()
+ping :: Agent MsgF ()
 ping = delay >> broadcast Ping >> go
   where
     go = do
@@ -270,7 +249,7 @@ ping = delay >> broadcast Ping >> go
 
 -- |Agent @'pong'@ waits for a @'Ping'@ message, the broadcasts a @'Pong'@ message
 -- and repeats.
-pong :: Agent PingPongMessage ()
+pong :: Agent MsgF ()
 pong = do
     msg <- receive
     case msg of
@@ -295,7 +274,7 @@ pong = do
 --
 -- __TODO:__ Implement @'runIO'@.
 runIO :: 
-      [Agent PingPongMessage ()] -- ^The agents to run concurrently.
+      [Agent MsgF ()] -- ^The agents to run concurrently.
       -> IO ()
 runIO list = do
   workChan <- atomically newTChan
@@ -305,9 +284,8 @@ runIO list = do
 main :: IO ()
 main = runIO [ping, pong]
 
-runThread :: TChan (Int, String) -> (Agent PingPongMessage ()) -> IO ()
+runThread :: TChan (Int, String) -> (Agent MsgF ()) -> IO ()
 runThread workChannel x = do
-            threadDelay (10^6) 
             --id <- forkIO
             let constructor = case x of 
                                 (Agent (Ping (Pure _))) -> "Ping"
