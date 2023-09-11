@@ -1,3 +1,6 @@
+--  STILL MUST ADD GRACEFUL SHUTDOWN
+
+
 import Control.Concurrent.STM
 import Control.Concurrent
 import System.Random
@@ -18,16 +21,12 @@ runIO list  = do
           sharedChan <- atomically $ newTChan
           loggingQueue <- loggingQueue
 
-
   --        let list = [ping, pong]
           let zList = zip [1..(length list + 1)] list
           forM_ zList (\(n, task) -> (item (task sharedChan loggingQueue)  n)) 
           
     where 
     item the_task id = forkIO ((do { (the_task id )}))
-
-
-
 
 runPingAndPong :: [SharedChannel -> LoggingQueue -> Int -> IO ()] -> IO ()
 runPingAndPong list  = do  
@@ -35,17 +34,11 @@ runPingAndPong list  = do
           sharedChan <- atomically $ newTChan
           loggingQueue <- loggingQueue
 
-
-  --        let list = [ping, pong]
           let zList = zip [1..(length list + 1)] list
           forM_ zList (\(n, task) -> (item (task sharedChan loggingQueue)  n)) 
           
     where 
     item the_task id = forkIO ((do { (the_task id )}))
-
-
-
-
 
 loggingQueue :: IO(LoggingQueue)
 loggingQueue = do
@@ -76,11 +69,8 @@ sharedChan = atomically newTChan
 --    loop
 --    ping
 
-
-
 sequentialLog :: PingPong -> LoggingQueue -> IO ()
 sequentialLog pp loggingQueue = atomically $ writeTChan loggingQueue $ show pp  
-
 
 receive :: SharedChannel -> STM (Int, PingPong)
 receive sharedC = do 
@@ -88,7 +78,6 @@ receive sharedC = do
   case status of
     Nothing -> retry
     Just (id, msg) -> return (id, msg) 
-
 
 ping :: SharedChannel -> LoggingQueue -> Int -> IO ()
 ping sharedC loggingQueue idOfThread = delay >> broadcast (idOfThread, Ping) sharedC >> sequentialLog Ping loggingQueue >> go

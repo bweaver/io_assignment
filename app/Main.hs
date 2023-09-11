@@ -12,7 +12,7 @@ import HDT.Interpreters hiding (ping, pong)
 
 -- THIS ROUTINE COMPILES, BUT DOES NOT WORK. 
 
--- FOR DEMONSTRACTION OF THREADS, 
+-- FOR DEMONSTRATION OF THREADS, 
    -- run MyPingPong.hs with this commands:
       -- stack ghci     -- in directory containing MyPingPong.hs
       -- main

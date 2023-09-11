@@ -199,11 +199,17 @@ data MsgF a =
 liftF' :: Functor f => f a -> Agent f a
 liftF' = Agent . fmap Pure
 
---HACK --
-runIO :: [Agent MsgF a] -> IO ()
-runIO list = IOInterpreter.runPingAndPong $ map interpretPingOrPong list
+type SharedChannel = TChan (Int, PingPong)
+type LoggingQueue  = TChan String
 
-run :: Agent MsgF a -> IO ()
+runIO :: [Agent MsgF a] -> IO ()
+runIO list = do 
+  sharedChan   <- atomically $ newTChan
+  loggingQueue <- loggingQueue
+
+  forM list $ (run sharedChan loggingQueue) 
+  
+run :: SharedChannel -> LoggingQueue -> Agent MsgF a -> IO ()
 run (Pure x) = return ()
 run (Agent op) = interpret op >>= run
 
