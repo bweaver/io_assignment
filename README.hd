@@ -1,0 +1,8 @@
+This represents work done so far on the test assignment.
+
+HDT.Tasks -- compiles - with some small translations done. Just today realized I needed to (could) interpret constuctors with continuations. 
+		That is still to be done. 
+
+MyPingPong.hs - shows successful production of Ping Pong output in 2 threads, with sequential logging and use of a shared TChan. 
+		This work pertains only to the IO side.
+
