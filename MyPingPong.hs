@@ -3,10 +3,13 @@ import Control.Concurrent
 import System.Random
 import Control.Monad -- hiding (forever)
 
- -- HACK with runPingAndPong- 
+ -- HACK with runPingAndPong-
+
+data PingPong = Ping |Pong deriving Show
+
 main = runPingAndPong [ping, pong]
 
-runIO :: [TChan (Int, String) -> TChan String -> Int -> IO ()] -> IO ()
+runIO :: [TChan (Int, PingPong) -> TChan String -> Int -> IO ()] -> IO ()
 runIO list  = do  
 
           sharedChan <- atomically $ newTChan
@@ -23,7 +26,7 @@ runIO list  = do
 
 
 
-runPingAndPong :: [TChan (Int, String) -> TChan String -> Int -> IO ()] -> IO ()
+runPingAndPong :: [TChan (Int, PingPong) -> TChan String -> Int -> IO ()] -> IO ()
 runPingAndPong list  = do  
 
           sharedChan <- atomically $ newTChan
@@ -47,7 +50,7 @@ loggingQueue = do
     forkIO . forever $ atomically (readTChan queue) >>= putStrLn
     return queue
 
-sharedChan :: IO (TChan String)
+sharedChan :: IO (TChan PingPong)
 sharedChan = atomically newTChan
 
 
@@ -72,11 +75,11 @@ sharedChan = atomically newTChan
 
 
 
-sequentialLog :: String -> TChan String -> IO ()
-sequentialLog msg loggingQueue = atomically $ writeTChan loggingQueue msg  
+sequentialLog :: PingPong -> TChan String -> IO ()
+sequentialLog pp loggingQueue = atomically $ writeTChan loggingQueue $ show pp  
 
 
-receive :: TChan (Int, String) -> STM (Int, String)
+receive :: TChan (Int, PingPong) -> STM (Int, PingPong)
 receive sharedC = do 
   status <- tryReadTChan sharedC
   case status of
@@ -84,31 +87,31 @@ receive sharedC = do
     Just (id, msg) -> return (id, msg) 
 
 
-ping :: TChan (Int, String) -> TChan String -> Int -> IO ()
-ping sharedC loggingQueue idOfThread = delay >> broadcast (idOfThread, "Ping") sharedC >> sequentialLog "Ping" loggingQueue >> go
+ping :: TChan (Int, PingPong) -> TChan String -> Int -> IO ()
+ping sharedC loggingQueue idOfThread = delay >> broadcast (idOfThread, Ping) sharedC >> sequentialLog Ping loggingQueue >> go
   where go = do 
            (id, msg) <- atomically $ receive sharedC 
            case msg of 
-             "Ping" -> (atomically $ unGetTChan sharedC (idOfThread, "Ping")) >> go
-             "Pong" -> 
+             Ping -> (atomically $ unGetTChan sharedC (idOfThread, Ping)) >> go
+             Pong -> 
                ping sharedC loggingQueue idOfThread 
 
 delay :: IO ()
 delay = threadDelay (10^6)
 
-broadcast :: (Int, String) -> TChan (Int, String) -> IO ()
+broadcast :: (Int, PingPong) -> TChan (Int, PingPong) -> IO ()
 broadcast (id, msg) sharedC = 
   atomically $ writeTChan sharedC (id, msg) 
 
-pong :: TChan (Int, String) -> TChan String -> Int -> IO ()
+pong :: TChan (Int, PingPong) -> TChan String -> Int -> IO ()
 pong sharedC loggingQueue idOfThread =  do 
          (_, msg) <- atomically $ receive sharedC 
          case msg of   
-           "Ping" ->  
-             delay >> broadcast (idOfThread, "Pong") sharedC >> sequentialLog "Pong" loggingQueue >> pong sharedC loggingQueue idOfThread 
+           Ping ->  
+             delay >> broadcast (idOfThread, Pong) sharedC >> sequentialLog Pong loggingQueue >> pong sharedC loggingQueue idOfThread 
                       
-           "Pong" ->  (
-             (atomically $ unGetTChan sharedC (idOfThread, "Pong")) >> pong sharedC loggingQueue idOfThread )
+           Pong ->  (
+             (atomically $ unGetTChan sharedC (idOfThread, Pong)) >> pong sharedC loggingQueue idOfThread )
 
 
 randomDelay :: IO ()
