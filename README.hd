@@ -1,7 +1,17 @@
 This represents work done so far on the test assignment.
 
-HDT.Tasks -- compiles - with some small translations done. Just today realized I needed to (could) interpret constuctors with continuations. 
-		That is still to be done. 
+HDT.Tasks -- Spent much time attempting to resolve msg type variable kind (*, or * -> *). 
+             - Ended up hard-coding MsgF functor into (this) instance of Agent, in order to keep moving.  
+             - I did some code showing understanding mapping of constructors in a translated DSL
+             - Just today realized I interpret constuctors with continuations. 
+		That is still to be done.
+
+             - To show some work on threads, see MyPingPong.hs.   
+               This file can be run if you, while in the directory containing MyPingPong.hs, do:
+                  stack ghci
+                  :l MyPingPong.hs
+                  main
+              - sequential logging is completed, but not graceful thread termination (solution:  waitForChildren - did not have time)
 
 MyPingPong.hs - shows successful production of Ping Pong output in 2 threads, with sequential logging and use of a shared TChan. 
 		This work pertains only to the IO side.
